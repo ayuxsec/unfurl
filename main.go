@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 
-	parser "github.com/Cgboal/DomainParser"
+	"golang.org/x/net/publicsuffix"
+	// parser "github.com/Cgboal/DomainParser"
 )
 
-var extractor parser.Parser
+// var extractor parser.Parser
 
-func init() {
-	extractor = parser.NewDomainParser()
-}
+// func init() {
+// 	extractor = parser.NewDomainParser()
+// }
 
 func main() {
 
@@ -410,21 +410,31 @@ func format(u *url.URL, f string) []string {
 }
 
 func extractFromDomain(u *url.URL, selection string) string {
-
-	// remove the port before parsing
-	portRe := regexp.MustCompile(`(?m):\d+$`)
-
-	domain := portRe.ReplaceAllString(u.Host, "")
+	host := u.Hostname()
 
 	switch selection {
-	case "subdomain":
-		return extractor.GetSubdomain(domain)
-	case "root":
-		return extractor.GetDomain(domain)
 	case "tld":
-		return extractor.GetTld(domain)
+		tld, _ := publicsuffix.PublicSuffix(host)
+		return tld
+
+	case "root":
+		eTLDPlusOne, err := publicsuffix.EffectiveTLDPlusOne(host)
+		if err != nil {
+			return ""
+		}
+		parts := strings.Split(eTLDPlusOne, ".")
+		return parts[0]
+	case "subdomain":
+		eTLDPlusOne, err := publicsuffix.EffectiveTLDPlusOne(host)
+		if err != nil {
+			return ""
+		}
+		if host == eTLDPlusOne {
+			return ""
+		}
+		return strings.TrimSuffix(host, "."+eTLDPlusOne)
 	default:
-		return ""
+		return "Unknown"
 	}
 }
 
